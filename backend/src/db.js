@@ -1,11 +1,9 @@
-// backend/db.js
-const fetch = require('node-fetch');
-
-const SPARQL_QUERY = process.env.SPARQL_QUERY;
+// backend/src/db.js
+const SPARQL_QUERY  = process.env.SPARQL_QUERY;
 const SPARQL_UPDATE = process.env.SPARQL_UPDATE;
 
 if (!SPARQL_QUERY || !SPARQL_UPDATE) {
-  console.warn('[SPARQL] Variables de entorno SPARQL_QUERY / SPARQL_UPDATE no definidas');
+  console.warn('[SPARQL] Falta SPARQL_QUERY / SPARQL_UPDATE en .env');
 }
 
 async function ensureOk(res) {
@@ -22,11 +20,11 @@ async function sparqlSelect(query) {
     headers: { 'content-type': 'application/sparql-query' },
     body: query
   }).then(ensureOk);
-  return res.json(); // devuelve JSON SPARQL (bindings)
+  return res.json();
 }
 
 async function sparqlUpdate(updateQuery) {
-  const res = await fetch(SPARQL_UPDATE, {
+  await fetch(SPARQL_UPDATE, {
     method: 'POST',
     headers: { 'content-type': 'application/sparql-update' },
     body: updateQuery
@@ -35,8 +33,5 @@ async function sparqlUpdate(updateQuery) {
 }
 
 module.exports = {
-  query: { // para que “se sienta” similar a pool.query(...)
-    select: sparqlSelect,
-    update: sparqlUpdate
-  }
+  query: { select: sparqlSelect, update: sparqlUpdate }
 };
