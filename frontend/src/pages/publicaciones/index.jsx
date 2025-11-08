@@ -65,7 +65,6 @@ export default function PublicacionesTacitas() {
                   <th className="border px-3 py-2">Formato</th>
                   <th className="border px-3 py-2">Licencia</th>
                   <th className="border px-3 py-2">Autor</th>
-                  <th className="border px-3 py-2">Tema</th>
                   <th className="border px-3 py-2">Acciones</th>
                 </tr>
               </thead>
@@ -79,7 +78,6 @@ export default function PublicacionesTacitas() {
                     <td className="border px-3 py-2">{p.formato}</td>
                     <td className="border px-3 py-2">{p.licencia}</td>
                     <td className="border px-3 py-2">{p.autorNombre || p.autorIri}</td>
-                    <td className="border px-3 py-2">{p.temaNombre || p.temaIri}</td>
                     <td className="border px-3 py-2">
                       <div className="flex gap-2">
                         <button className="px-2 py-1 text-sm bg-blue-600 text-white rounded">Ver</button>

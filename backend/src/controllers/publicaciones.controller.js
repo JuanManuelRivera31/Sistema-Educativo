@@ -1,323 +1,101 @@
 // src/controllers/publicaciones.controller.js
 const { query } = require('../db');
+const GRAPH_DATA = process.env.GRAPH_DATA || ''; // deja vacío si cargaste al "default"
 
-const ONTO_BASE  = (process.env.ONTO_BASE || 'http://example.org/educa#');
-const GRAPH_DATA = process.env.GRAPH_DATA || '';
-
-const PREFIX = `
-PREFIX :    <${ONTO_BASE}>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-`;
 const inGraph = (body) => GRAPH_DATA ? `GRAPH <${GRAPH_DATA}> { ${body} }` : body;
 
-async function listPublicaciones(req, res){
-  try {
-    const q = `
-      ${PREFIX}
-      SELECT ?p ?id ?nombre ?desc ?fecha ?formato ?licencia ?autorNombre ?temaNombre
-      WHERE {
-        ${inGraph(`
-          ?p a :PublicacionTacita ;
-             :tieneNombre ?nombre .
-          OPTIONAL { ?p :tieneDescripcion ?desc }
-          OPTIONAL { ?p :tieneFechaCreacion ?fecha }
-          OPTIONAL { ?p :tieneFormato ?formato }
-          OPTIONAL { ?p :tieneLicencia ?licencia }
-          OPTIONAL { ?p :publicadoPor ?au . ?au :tieneNombre ?autorNombre }
-          OPTIONAL { ?p :publicacion_Tiene_Tema ?te . ?te :tieneNombre ?temaNombre }
-        `)}
-        BIND(REPLACE(STR(?p), "^.*/", "") AS ?id)
+const Q = (body) => `
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX owl:  <http://www.w3.org/2002/07/owl#>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+SELECT ?p ?id ?nombre ?desc ?fecha ?formato ?licencia ?autorNombre ?temaNombre
+WHERE {
+  { SELECT ?C WHERE {
+      ?C a owl:Class .
+      BIND( REPLACE(STR(?C), "^.*(#|/)", "") AS ?local )
+      FILTER( LCASE(?local) = "publicaciontacita" )
+    } LIMIT 1
+  }
+  ${inGraph(`
+    ?p a ?C .
+    OPTIONAL {
+      ?p ?namePred ?nombre .
+      FILTER( isLiteral(?nombre) )
+      BIND( REPLACE(STR(?namePred), "^.*(#|/)", "") AS ?nameLN )
+      FILTER( LCASE(?nameLN) IN ("tienenombre","nombre","label","titulo","name") )
+    }
+    OPTIONAL {
+      ?p ?dPred ?desc .
+      FILTER( isLiteral(?desc) )
+      BIND( REPLACE(STR(?dPred), "^.*(#|/)", "") AS ?dLN )
+      FILTER( LCASE(?dLN) IN ("tienedescripcion","descripcion","description","resumen") )
+    }
+    OPTIONAL {
+      ?p ?fPred ?fecha .
+      FILTER( isLiteral(?fecha) )
+      BIND( REPLACE(STR(?fPred), "^.*(#|/)", "") AS ?fLN )
+      FILTER( LCASE(?fLN) IN ("tienefecha","tienefechacreacion","fecha","fechacreacion") )
+    }
+    OPTIONAL {
+      ?p ?formPred ?formato .
+      FILTER( isLiteral(?formato) )
+      BIND( REPLACE(STR(?formPred), "^.*(#|/)", "") AS ?formLN )
+      FILTER( LCASE(?formLN) IN ("tieneformato","formato") )
+    }
+    OPTIONAL {
+      ?p ?licPred ?licencia .
+      FILTER( isLiteral(?licencia) )
+      BIND( REPLACE(STR(?licPred), "^.*(#|/)", "") AS ?licLN )
+      FILTER( LCASE(?licLN) IN ("tienelicencia","licencia") )
+    }
+    OPTIONAL {
+      ?p ?authPred ?au .
+      BIND( REPLACE(STR(?authPred), "^.*(#|/)", "") AS ?authLN )
+      FILTER( LCASE(?authLN) IN ("publicadopor","autor","tieneautor") )
+      OPTIONAL {
+        ?au ?anp ?autorNombre .
+        FILTER( isLiteral(?autorNombre) )
+        BIND( REPLACE(STR(?anp), "^.*(#|/)", "") AS ?anl )
+        FILTER( LCASE(?anl) IN ("tienenombre","nombre","label") )
       }
-      ORDER BY LCASE(?nombre)
-    `;
-    const r = await query.select(q);
+    }
+    OPTIONAL {
+      ?p ?temaPred ?tema .
+      BIND( REPLACE(STR(?temaPred), "^.*(#|/)", "") AS ?temaLN )
+      FILTER( LCASE(?temaLN) IN ("publicaciontienetema","tienetema","tema") )
+      OPTIONAL {
+        ?tema ?tnp ?temaNombre .
+        FILTER( isLiteral(?temaNombre) )
+        BIND( REPLACE(STR(?tnp), "^.*(#|/)", "") AS ?tnl )
+        FILTER( LCASE(?tnl) IN ("tienenombre","nombre","label") )
+      }
+    }
+  `)}
+  BIND( REPLACE(STR(?p), "^.*(#|/)", "") AS ?id )
+}
+ORDER BY LCASE(STR(COALESCE(?nombre, ?id)))
+`;
+
+async function listPublicaciones(req, res) {
+  try {
+    const r = await query.select(Q(''));
     const rows = r.results.bindings.map(b => ({
-      iri: b.p?.value,
-      id: b.id?.value,
-      nombre: b.nombre?.value,
-      descripcion: b.desc?.value || null,
-      fecha: b.fecha?.value || null,
-      formato: b.formato?.value || null,
-      licencia: b.licencia?.value || null,
-      autorNombre: b.autorNombre?.value || null,
-      temaNombre: b.temaNombre?.value || null,
+      iri:          b.p?.value,
+      id:           b.id?.value,
+      nombre:       b.nombre?.value || null,
+      descripcion:  b.desc?.value || null,
+      fecha:        b.fecha?.value || null,
+      formato:      b.formato?.value || null,
+      licencia:     b.licencia?.value || null,
+      autorNombre:  b.autorNombre?.value || null,
+      temaNombre:   b.temaNombre?.value || null,
     }));
     res.json(rows);
   } catch (e) {
     console.error('listPublicaciones:', e);
-    res.status(500).json({ error: 'Fallo listando PublicacionTacita' });
+    res.status(500).json({ error: 'Fallo listando publicaciones' });
   }
 }
+
 module.exports = { listPublicaciones };
-
-
-
-// const { query } = require('../db');
-
-// const ONTO_BASE   = (process.env.ONTO_BASE || 'http://example.org/educa').replace(/[#/]?$/, '#');
-// const GRAPH_DATA  = process.env.GRAPH_DATA || ''; // ej. https://tu-dominio/graph/data  (o vacío si usas default)
-
-// const PREFIX = `
-// PREFIX :    <${ONTO_BASE}>
-// PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-// `;
-
-// const inGraph = (body) => GRAPH_DATA ? `GRAPH <${GRAPH_DATA}> { ${body} }` : body;
-
-// /** GET /api/proyectos  → lista PublicacionTacita */
-// const listPublicaciones = async (req, res) => {
-//   try {
-//     const q = `
-//       ${PREFIX}
-//       SELECT ?p ?id ?nombre ?desc ?fecha ?formato ?licencia ?autor ?autorNombre ?tema ?temaNombre
-//       WHERE {
-//         ${inGraph(`
-//           ?p a :PublicacionTacita ;
-//              :tieneNombre ?nombre ;
-//              :tieneDescripcion ?desc ;
-//              :tieneFechaCreacion ?fecha ;
-//              :tieneFormato ?formato ;
-//              :tieneLicencia ?licencia ;
-//              :publicadoPor ?autor ;
-//              :publicacion_Tiene_Tema ?tema .
-//           OPTIONAL { ?autor :tieneNombre ?autorNombre }
-//           OPTIONAL { ?tema  :tieneNombre ?temaNombre }
-//         `)}
-//         BIND( REPLACE(STR(?p), "^.*/", "") AS ?id )
-//       }
-//       ORDER BY LCASE(?nombre)
-//     `;
-
-//     const r = await query.select(q);
-//     const rows = r.results.bindings.map(b => ({
-//       iri:          b.p?.value,
-//       id:           b.id?.value,
-//       nombre:       b.nombre?.value,
-//       descripcion:  b.desc?.value,
-//       fecha:        b.fecha?.value,
-//       formato:      b.formato?.value,
-//       licencia:     b.licencia?.value,
-//       autorIri:     b.autor?.value,
-//       autorNombre:  b.autorNombre?.value || null,
-//       temaIri:      b.tema?.value,
-//       temaNombre:   b.temaNombre?.value || null,
-//     }));
-
-//     res.json(rows);
-//   } catch (err) {
-//     console.error('listPublicaciones error:', err);
-//     res.status(500).json({ error: 'No fue posible listar PublicacionTacita' });
-//   }
-// };
-
-// module.exports = { listPublicaciones };
-
-
-
-// const { query } = require('../../db'); // ajusta ruta si tu db.js está en otro lado
-
-// const ONTO_BASE = (process.env.ONTO_BASE || 'http://example.org/educa').replace(/[#/]?$/, '');
-// const CLASS_PROYECTO = process.env.CLASS_PROYECTO || 'PublicacionTacita';
-
-// const PREFIX = `
-// PREFIX : <${ONTO_BASE}/>
-// PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-// `;
-
-// const iri = (local) => `:${local}`;
-// const lit = (v) => `"${String(v ?? '').replace(/"/g, '\\"')}"`;
-
-// /** GET /proyectos */
-// const getAllProyectos = async (req, res) => {
-//   try {
-//     const q = `
-//       ${PREFIX}
-//       SELECT ?id ?nombre ?fecha ?formato ?licencia ?tema ?temaNombre ?autor ?autorNombre
-//       WHERE {
-//         ?p rdf:type :${CLASS_PROYECTO} ;
-//            :tieneNombre ?nombre ;
-//            :tieneFechaCreacion ?fecha ;
-//            :tieneFormato ?formato ;
-//            :tieneLicencia ?licencia ;
-//            :publicacion_Tiene_Tema ?tema ;
-//            :publicadoPor ?autor .
-//         BIND(STRAFTER(STR(?p), "${ONTO_BASE}/") AS ?id)
-//         OPTIONAL { ?tema  :tieneNombre ?temaNombre }
-//         OPTIONAL { ?autor :tieneNombre ?autorNombre }
-//       }
-//       ORDER BY LCASE(?nombre)
-//     `;
-//     const r = await query.select(q);
-//     const rows = r.results.bindings.map(b => ({
-//       id: b.id?.value,
-//       nombre: b.nombre?.value,
-//       fecha: b.fecha?.value,
-//       formato: b.formato?.value,
-//       licencia: b.licencia?.value,
-//       tema: b.tema?.value,
-//       temaNombre: b.temaNombre?.value,
-//       autor: b.autor?.value,
-//       autorNombre: b.autorNombre?.value
-//     }));
-//     res.json(rows);
-//   } catch (error) {
-//     console.error('Error getAllProyectos:', error);
-//     res.status(500).json({ error: 'Error al obtener proyectos' });
-//   }
-// };
-
-// /** GET /proyectos/proyecto/:idProyecto */
-// const getProyecto = async (req, res) => {
-//   try {
-//     const { idProyecto } = req.params;
-//     const q = `
-//       ${PREFIX}
-//       SELECT ?iri ?nombre ?descripcion ?fecha ?formato ?licencia ?archivo
-//              ?tema ?temaNombre ?autor ?autorNombre
-//       WHERE {
-//         BIND(${iri(idProyecto)} AS ?iri)
-//         ?iri rdf:type :${CLASS_PROYECTO} ;
-//              :tieneNombre ?nombre ;
-//              :tieneDescripcion ?descripcion ;
-//              :tieneFechaCreacion ?fecha ;
-//              :tieneFormato ?formato ;
-//              :tieneLicencia ?licencia ;
-//              :tieneArchivo ?archivo ;
-//              :publicacion_Tiene_Tema ?tema ;
-//              :publicadoPor ?autor .
-//         OPTIONAL { ?tema  :tieneNombre ?temaNombre }
-//         OPTIONAL { ?autor :tieneNombre ?autorNombre }
-//       }
-//       LIMIT 1
-//     `;
-//     const r = await query.select(q);
-//     const b = r.results.bindings[0];
-//     if (!b) return res.status(404).json({ error: 'Proyecto no encontrado' });
-
-//     res.json({
-//       iri: b.iri?.value,
-//       nombre: b.nombre?.value,
-//       descripcion: b.descripcion?.value,
-//       fecha: b.fecha?.value,
-//       formato: b.formato?.value,
-//       licencia: b.licencia?.value,
-//       archivo: b.archivo?.value,
-//       tema: b.tema?.value,
-//       temaNombre: b.temaNombre?.value,
-//       autor: b.autor?.value,
-//       autorNombre: b.autorNombre?.value
-//     });
-//   } catch (error) {
-//     console.error('Error getProyecto:', error);
-//     res.status(500).json({ error: 'Error al obtener el proyecto' });
-//   }
-// };
-
-// /** POST /proyectos
-//  * body: { id, nombre, descripcion, fecha, formato, licencia, archivo, temaId, autorId }
-//  */
-// const createProyecto = async (req, res) => {
-//   try {
-//     const { id, nombre, descripcion, fecha, formato, licencia, archivo, temaId, autorId } = req.body;
-//     if (!id || !nombre || !temaId || !autorId) {
-//       return res.status(400).json({ error: 'id, nombre, temaId y autorId son obligatorios' });
-//     }
-//     const u = `
-//       ${PREFIX}
-//       INSERT DATA {
-//         :${id} rdf:type :${CLASS_PROYECTO} ;
-//           :tieneNombre ${lit(nombre)} ;
-//           :tieneDescripcion ${lit(descripcion || '')} ;
-//           :tieneFechaCreacion ${lit(fecha || new Date().toISOString().slice(0,10))} ;
-//           :tieneFormato ${lit(formato || 'otro')} ;
-//           :tieneLicencia ${lit(licencia || 'CC-BY')} ;
-//           :tieneArchivo ${lit(archivo || '')} ;
-//           :publicacion_Tiene_Tema :${temaId} ;
-//           :publicadoPor :${autorId} .
-//       }
-//     `;
-//     await query.update(u);
-//     res.status(201).json({ ok: true, id });
-//   } catch (error) {
-//     console.error('Error createProyecto:', error);
-//     res.status(500).json({ error: 'Error al crear el proyecto' });
-//   }
-// };
-
-// /** PUT /proyectos/:id
-//  * body parcial: { nombre?, descripcion?, fecha?, formato?, licencia?, archivo?, temaId?, autorId? }
-//  */
-// const updateProyecto = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const { nombre, descripcion, fecha, formato, licencia, archivo, temaId, autorId } = req.body;
-
-//     const del = `
-//       ${PREFIX}
-//       DELETE {
-//         :${id} :tieneNombre ?n ;
-//                :tieneDescripcion ?d ;
-//                :tieneFechaCreacion ?fe ;
-//                :tieneFormato ?fo ;
-//                :tieneLicencia ?li ;
-//                :tieneArchivo ?ar ;
-//                :publicacion_Tiene_Tema ?t ;
-//                :publicadoPor ?au .
-//       } WHERE {
-//         OPTIONAL { :${id} :tieneNombre ?n }
-//         OPTIONAL { :${id} :tieneDescripcion ?d }
-//         OPTIONAL { :${id} :tieneFechaCreacion ?fe }
-//         OPTIONAL { :${id} :tieneFormato ?fo }
-//         OPTIONAL { :${id} :tieneLicencia ?li }
-//         OPTIONAL { :${id} :tieneArchivo ?ar }
-//         OPTIONAL { :${id} :publicacion_Tiene_Tema ?t }
-//         OPTIONAL { :${id} :publicadoPor ?au }
-//       };
-//     `;
-
-//     const ins = [];
-//     if (nombre != null)      ins.push(`:tieneNombre ${lit(nombre)} ;`);
-//     if (descripcion != null) ins.push(`:tieneDescripcion ${lit(descripcion)} ;`);
-//     if (fecha != null)       ins.push(`:tieneFechaCreacion ${lit(fecha)} ;`);
-//     if (formato != null)     ins.push(`:tieneFormato ${lit(formato)} ;`);
-//     if (licencia != null)    ins.push(`:tieneLicencia ${lit(licencia)} ;`);
-//     if (archivo != null)     ins.push(`:tieneArchivo ${lit(archivo)} ;`);
-//     if (temaId != null)      ins.push(`:publicacion_Tiene_Tema :${temaId} ;`);
-//     if (autorId != null)     ins.push(`:publicadoPor :${autorId} ;`);
-
-//     const insUpdate = ins.length ? `
-//       ${PREFIX}
-//       INSERT { :${id} ${ins.join('\n               ')} . } WHERE {}
-//     ` : '';
-
-//     await query.update(del + insUpdate);
-//     res.json({ ok: true, id });
-//   } catch (error) {
-//     console.error('Error updateProyecto:', error);
-//     res.status(500).json({ error: 'Error al actualizar el proyecto' });
-//   }
-// };
-
-// /** DELETE /proyectos/:id */
-// const deleteProyecto = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const u = `
-//       ${PREFIX}
-//       DELETE WHERE { :${id} ?p ?o } ;
-//     `;
-//     await query.update(u);
-//     res.json({ ok: true, id });
-//   } catch (error) {
-//     console.error('Error deleteProyecto:', error);
-//     res.status(500).json({ error: 'Error al eliminar el proyecto' });
-//   }
-// };
-
-// module.exports = {
-//   getAllProyectos,
-//   getProyecto,
-//   createProyecto,
-//   updateProyecto,
-//   deleteProyecto
-// };
