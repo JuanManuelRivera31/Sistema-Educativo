@@ -13,6 +13,7 @@ app.use(express.json());
 
 // Rutas
 app.use('/api/publicaciones', require('./routes/publicaciones.routes'));
+app.use('/api/proyectos', require('./routes/publicaciones.routes'));
 
 const PORT = 4000;
 app.listen(PORT, () => {
