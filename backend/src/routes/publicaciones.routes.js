@@ -13,5 +13,6 @@ const router = Router();
 // router.put('/:id', updateProyecto);
 router.get('/', listPublicaciones);
 
+
 module.exports = router;
 
