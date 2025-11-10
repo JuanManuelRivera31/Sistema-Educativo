@@ -1,6 +1,6 @@
 // src/components/Header.jsx
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
+import { NavLink, Link, useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
   { to: "/", label: "Inicio" },
@@ -21,17 +21,19 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // si cambias de ruta, limpia el menú móvil
+  // 1) Mantén el input del header sincronizado con ?q=
+  useEffect(() => {
+    const q = new URLSearchParams(location.search).get("q") ?? "";
+    setTerm(q);
+  }, [location.search]);
+
+  // 2) Cierra menú al cambiar de ruta
   useEffect(() => { setOpen(false); }, [location.pathname]);
 
-  // Atajo: presiona "/" para enfocar el buscador
+  // 3) Atajo "/" para enfocar buscador
   useEffect(() => {
     const onKey = (e) => {
-      if (
-        e.key === "/" &&
-        document.activeElement?.tagName.toLowerCase() !== "input" &&
-        document.activeElement?.tagName.toLowerCase() !== "textarea"
-      ) {
+      if (e.key === "/" && !["input","textarea"].includes(document.activeElement?.tagName.toLowerCase())) {
         e.preventDefault();
         inputRef.current?.focus();
       }
@@ -43,7 +45,8 @@ export default function Header() {
   const submit = (e) => {
     e?.preventDefault();
     const q = term.trim();
-    navigate(q ? `/publicaciones?q=${encodeURIComponent(q)}` : "/publicaciones");
+    // Redirige a Publicaciones con q y reinicia a página 1
+    navigate(q ? `/publicaciones?q=${encodeURIComponent(q)}&page=1` : "/publicaciones?page=1");
   };
 
   const baseItem = "px-3 py-2 rounded-md text-sm font-medium transition";
@@ -51,16 +54,16 @@ export default function Header() {
   const inactive = "text-slate-700 hover:bg-slate-100";
 
   return (
-    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-400">
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-6">
+    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-200">
+      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="h-16 flex items-center gap-3">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 shrink-0">
-            <span className="inline-block w-4 h-6 bg-blue-600 rounded-sm" />
+            <span className="inline-block w-2.5 h-6 bg-blue-600 rounded-sm" />
             <span className="text-lg font-extrabold text-blue-900">EduConocimiento</span>
           </Link>
 
-          {/* Buscador (desktop) */}
+          {/* Buscador desktop */}
           <form onSubmit={submit} className="hidden md:flex flex-1 items-center">
             <label htmlFor="global-search" className="sr-only">Buscar</label>
             <input
@@ -68,20 +71,16 @@ export default function Header() {
               ref={inputRef}
               value={term}
               onChange={(e) => setTerm(e.target.value)}
-              placeholder="Buscar por nombre, autor, tema…"
+              placeholder="Buscar por nombre, autor o tema… (atajo /)"
               className="w-full max-w-xl border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
           </form>
 
-          {/* Desktop menu */}
+          {/* Menú desktop */}
           <div className="hidden md:flex md:items-center md:gap-1">
             {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  `${baseItem} ${isActive ? active : inactive}`
-                }
+              <NavLink key={item.to} to={item.to}
+                className={({ isActive }) => `${baseItem} ${isActive ? active : inactive}`}
                 end={item.to === "/"}
               >
                 {item.label}
@@ -89,12 +88,11 @@ export default function Header() {
             ))}
           </div>
 
-          {/* Mobile toggle */}
+          {/* Toggle móvil */}
           <button
             onClick={() => setOpen((v) => !v)}
-            className="md:hidden ml-auto inline-flex items-center justify-center p-2 rounded-md text-slate-700 hover:bg-slate-100 focus:outline-none"
-            aria-label="Abrir menú"
-            aria-expanded={open}
+            className="md:hidden ml-auto inline-flex items-center justify-center p-2 rounded-md text-slate-700 hover:bg-slate-100"
+            aria-label="Abrir menú" aria-expanded={open}
           >
             <svg className={`h-6 w-6 ${open ? "hidden" : "block"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path strokeWidth="2" strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
@@ -105,7 +103,7 @@ export default function Header() {
           </button>
         </div>
 
-        {/* Mobile menu + buscador */}
+        {/* Menú + buscador móvil */}
         <div className={`md:hidden ${open ? "block" : "hidden"} pb-3`}>
           <form onSubmit={submit} className="mb-2">
             <label htmlFor="global-search-m" className="sr-only">Buscar</label>
@@ -119,14 +117,10 @@ export default function Header() {
           </form>
           <div className="grid gap-1">
             {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  `${baseItem} ${isActive ? active : inactive}`
-                }
+              <NavLink key={item.to} to={item.to}
+                className={({ isActive }) => `${baseItem} ${isActive ? active : inactive}`}
                 end={item.to === "/"}
+                onClick={() => setOpen(false)}
               >
                 {item.label}
               </NavLink>

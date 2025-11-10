@@ -1,5 +1,3 @@
-import React from 'react';
-
 function resolveType({ formato, archivoUrl }) {
   const f = (formato || '').toLowerCase();
   const url = (archivoUrl || '').toLowerCase();

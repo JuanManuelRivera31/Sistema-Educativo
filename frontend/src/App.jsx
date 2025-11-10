@@ -2,7 +2,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Header from "./components/Header";
 import PublicacionesTacitas from "./pages/publicaciones/index.jsx";
-// importa tu Home real; si aún no existe, crea un componente simple.
+import PublicacionNueva from "./pages/nuevaPublicacion/index.jsx";
 import Home from "./pages/home/index.jsx";
 
 export default function App() {
@@ -16,10 +16,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/publicaciones" element={<PublicacionesTacitas />} />
-          {/* Agrega aquí las demás rutas cuando las vayas creando */}
+          <Route path="/publicaciones/nueva" element={<PublicacionNueva />} />
           {/* <Route path="/temas" element={<Temas />} /> */}
           {/* <Route path="/personas" element={<Personas />} /> */}
-          {/* ... */}
           <Route path="*" element={<div style={{ padding: 12 }}>Inicio</div>} />
         </Routes>
       </main>
