@@ -1,113 +1,174 @@
-function resolveType({ formato, archivoUrl }) {
-  const f = (formato || '').toLowerCase();
-  const url = (archivoUrl || '').toLowerCase();
+// src/components/PublicacionCard.jsx
+import { useMemo } from "react";
+import axios from "axios";
 
-  // prioriza formato si viene
-  if (f.includes('imagen')) return 'image';
-  if (f.includes('video'))  return 'video';
-  if (f.includes('audio'))  return 'audio';
-  if (f.includes('pdf'))    return 'pdf';
-  if (f.includes('texto') || f.includes('text')) return 'text';
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
-  // detecta por extensión
-  if (/\.(png|jpe?g|webp|gif|bmp|svg)$/.test(url)) return 'image';
-  if (/\.(mp4|webm|ogg|mov|m4v)$/.test(url))       return 'video';
-  if (/\.(mp3|wav|ogg|m4a|flac)$/.test(url))       return 'audio';
-  if (/\.(pdf)$/.test(url))                        return 'pdf';
-  return 'text';
-}
-
-export default function PublicacionCard({ item, onView, onEdit, onDelete }) {
+/**
+ * item: {
+ *   iri, id, nombre, descripcion, fecha, formato, licencia,
+ *   autorNombre, temaNombre, archivoUrl, mimeType, nombreArchivo
+ * }
+ * onDeleted?: (iri) => void
+ */
+export default function PublicacionCard({ item = {}, onDeleted }) {
   const {
-    id, nombre, descripcion, fecha, formato, licencia,
-    autorNombre, temaNombre, archivoUrl
+    iri,
+    id,
+    nombre,
+    descripcion,
+    fecha,
+    formato,
+    licencia,
+    autorNombre,
+    temaNombre,
+    archivoUrl,
+    mimeType,
+    nombreArchivo,
   } = item;
 
-  const type = resolveType({ formato, archivoUrl });
+  // Determinar el "kind" para la vista previa
+  const kind = useMemo(() => {
+    const f = String(formato || "").toLowerCase();
+    const m = String(mimeType || "").toLowerCase();
+    const url = String(archivoUrl || "").toLowerCase();
 
-  const Preview = () => {
-    if (type === 'image' && archivoUrl) {
-      return (
-        <img
-          src={archivoUrl}
-          alt={nombre || id}
-          className="w-full h-48 object-cover rounded-t-2xl"
-          loading="lazy"
-        />
-      );
+    if (!archivoUrl) return "none";
+
+    // Imagen
+    if (f === "imagen" || m.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/.test(url)) {
+      return "image";
     }
-    if (type === 'video' && archivoUrl) {
-      return (
-        <video
-          className="w-full h-48 rounded-t-2xl"
-          controls
-          preload="metadata"
-        >
-          <source src={archivoUrl} />
-        </video>
-      );
+    // Video
+    if (f === "video" || m.startsWith("video/") || /\.(mp4|webm|ogg|mov|mkv)$/.test(url)) {
+      return "video";
     }
-    if (type === 'audio' && archivoUrl) {
-      return (
-        <div className="w-full h-48 flex items-center justify-center bg-slate-100 rounded-t-2xl">
-          <audio controls className="w-11/12">
-            <source src={archivoUrl} />
-          </audio>
-        </div>
-      );
+    // Audio
+    if (f === "audio" || m.startsWith("audio/") || /\.(mp3|wav|ogg|m4a)$/.test(url)) {
+      return "audio";
     }
-    if (type === 'pdf' && archivoUrl) {
-      return (
-        <iframe
-          className="w-full h-48 rounded-t-2xl"
-          src={archivoUrl}
-          title={nombre || id}
-        />
-      );
+    // PDF
+    if (f === "pdf" || m === "application/pdf" || /\.pdf$/.test(url)) {
+      return "pdf";
     }
-    // texto / desconocido
-    return (
-      <div className="w-full h-48 bg-slate-100 rounded-t-2xl flex items-center justify-center px-4 text-center">
-        <p className="text-slate-500 line-clamp-3">
-          {descripcion || 'Sin previsualización'}
-        </p>
-      </div>
-    );
-  };
+    // Otro
+    return "unknown";
+  }, [archivoUrl, formato, mimeType]);
+
+  const noFile = !archivoUrl;
+
+  async function handleDelete() {
+    if (!iri) return;
+    const ok = window.confirm("¿Eliminar esta publicación? Esta acción no se puede deshacer.");
+    if (!ok) return;
+
+    try {
+      // Soporta dos variantes:
+      // 1) /api/proyectos/:id?iri=...
+      // 2) /api/proyectos?iri=...
+      const url = id
+        ? `${API_BASE}/api/proyectos/${encodeURIComponent(id)}?iri=${encodeURIComponent(iri)}`
+        : `${API_BASE}/api/proyectos?iri=${encodeURIComponent(iri)}`;
+
+      await axios.delete(url);
+      if (typeof onDeleted === "function") onDeleted(iri);
+    } catch (e) {
+      console.error(e);
+      alert("No fue posible eliminar la publicación");
+    }
+  }
 
   return (
-    <div className="rounded-2xl shadow hover:shadow-lg transition overflow-hidden bg-white border border-slate-200">
-      <Preview />
-      <div className="p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-mono text-slate-500">{id}</span>
-          {formato && <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100">{formato}</span>}
-        </div>
-        <h3 className="text-lg font-semibold leading-tight">{nombre || 'Sin título'}</h3>
-        {descripcion && (
-          <p className="text-sm text-slate-600 line-clamp-3">{descripcion}</p>
+    <article className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition">
+      {/* Vista previa */}
+      <div className="aspect-video bg-slate-100 flex items-center justify-center">
+        {noFile && <div className="text-slate-400 text-sm">Sin vista previa</div>}
+
+        {!noFile && kind === "image" && (
+          // eslint-disable-next-line jsx-a11y/alt-text
+          <img src={archivoUrl} className="w-full h-full object-cover" loading="lazy" />
         )}
-        <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-2">
-          {autorNombre && <div><span className="font-medium">Autor:</span> {autorNombre}</div>}
-          {temaNombre &&  <div><span className="font-medium">Tema:</span> {temaNombre}</div>}
-          {fecha &&       <div><span className="font-medium">Fecha:</span> {fecha}</div>}
-          {licencia &&    <div><span className="font-medium">Licencia:</span> {licencia}</div>}
+
+        {!noFile && kind === "video" && (
+          <video src={archivoUrl} className="w-full h-full object-cover" controls preload="metadata" />
+        )}
+
+        {!noFile && kind === "audio" && (
+          <div className="p-4 w-full">
+            <audio src={archivoUrl} className="w-full" controls preload="metadata" />
+          </div>
+        )}
+
+        {!noFile && kind === "pdf" && (
+          <div className="p-4 text-center">
+            <div className="text-slate-600 text-sm mb-2">Documento PDF</div>
+            <a
+              href={archivoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
+            >
+              Abrir PDF
+            </a>
+          </div>
+        )}
+
+        {!noFile && kind === "unknown" && (
+          <div className="p-4 text-center">
+            <div className="text-slate-600 text-sm mb-2">Archivo</div>
+            <a
+              href={archivoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block px-3 py-1.5 rounded bg-slate-700 text-white text-sm hover:bg-slate-800"
+            >
+              Descargar {nombreArchivo ? `(${nombreArchivo})` : ""}
+            </a>
+          </div>
+        )}
+      </div>
+
+      {/* Contenido */}
+      <div className="p-4">
+        <h3 className="font-semibold text-slate-900 line-clamp-2">{nombre || "(Sin título)"}</h3>
+
+        {descripcion && (
+          <p className="text-slate-600 text-sm mt-1 line-clamp-2">{descripcion}</p>
+        )}
+
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600 mt-3">
+          {fecha && <span>📅 {fecha}</span>}
+          {formato && <span>🗂️ {String(formato).toUpperCase()}</span>}
+          {licencia && <span>⚖️ {licencia}</span>}
+          {autorNombre && <span>👤 {autorNombre}</span>}
+          {temaNombre && <span>🏷️ {temaNombre}</span>}
         </div>
-        <div className="pt-3 flex gap-2">
+
+        {/* Acciones */}
+        <div className="mt-3 flex items-center justify-between">
+          {archivoUrl ? (
+            <a
+              href={archivoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-blue-700 hover:text-blue-900 text-sm"
+            >
+              Abrir recurso ↗
+            </a>
+          ) : (
+            <span className="text-slate-400 text-sm">Sin archivo</span>
+          )}
+
           <button
-            onClick={() => onView?.(item)}
-            className="px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
-          >Ver</button>
-          <button
-            onClick={() => onEdit?.(item)}
-            className="px-3 py-1.5 text-sm rounded bg-amber-500 text-white hover:bg-amber-600"
-          >Editar</button>
-          <button
-            onClick={() => onDelete?.(item)}
-            className="px-3 py-1.5 text-sm rounded bg-red-600 text-white hover:bg-red-700"
-          >Eliminar</button>
+            onClick={handleDelete}
+            className="px-3 py-1.5 rounded border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-sm"
+            title="Eliminar publicación"
+          >
+            Eliminar
+          </button>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
+

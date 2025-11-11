@@ -100,7 +100,7 @@ export default function PublicacionNueva() {
         {/* ...o adjuntas un archivo para subir */}
         <div>
           <label className="block text-sm font-medium mb-1">Adjuntar archivo (opcional)</label>
-          <input type="file" {...register("archivo")} className="block w-full text-sm" />
+          <input type="file" {...register("archivo")} name="archivo" className="block w-full text-sm" />
           {archivo?.[0] && (
             <p className="text-xs text-slate-600 mt-1">
               Seleccionado: {archivo[0].name} ({Math.round(archivo[0].size/1024)} KB)
