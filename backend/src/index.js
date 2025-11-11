@@ -7,6 +7,9 @@ const path = require('path');
 
 const app = express();
 
+app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173', credentials: true }));
+app.use(express.json());
+
 app.use(morgan('dev'));
 app.use(cors());
 app.use(express.json());
@@ -23,6 +26,7 @@ app.use('/uploads', express.static(path.resolve(UPLOAD_DIR), {
 // Rutas
 app.use('/api/publicaciones', require('./routes/publicaciones.routes'));
 app.use('/api/proyectos', require('./routes/publicaciones.routes'));
+app.use('/api/auth', require('./routes/auth.routes'));
 
 const PORT = 4000;
 app.listen(PORT, () => {
