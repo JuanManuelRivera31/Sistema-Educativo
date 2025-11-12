@@ -1,6 +1,5 @@
 require('dotenv').config(); 
 
-
 const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
@@ -27,6 +26,7 @@ app.use('/uploads', express.static(path.resolve(UPLOAD_DIR), {
 app.use('/api/publicaciones', require('./routes/publicaciones.routes'));
 app.use('/api/proyectos', require('./routes/publicaciones.routes'));
 app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api/etnias', require('./routes/etnias.routes'));
 
 const PORT = 4000;
 app.listen(PORT, () => {

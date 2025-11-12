@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
-import PublicacionCard from "../../components/PublicacionCard";
+import EtniaCard from "../../components/EtniaCard";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -20,45 +20,28 @@ function useQuery() {
     nav({ search: p.toString() }, { replace: true });
   };
 
-  return { params, get, setMany };
+  return { get, setMany };
 }
 
-export default function PublicacionesTacitas() {
+export default function EtniasPage() {
   const { get, setMany } = useQuery();
-  const [state, setState] = useState({
-    items: [],
-    total: 0,
-    loading: true,
-    error: "",
-  });
+  const [state, setState] = useState({ items: [], total: 0, loading: true, error: "" });
 
   const page = Math.max(1, parseInt(get("page", "1"), 10));
-  const pageSize = Math.max(1, parseInt(get("pageSize", "12"), 10));
-  const sort = get("sort", "fecha_desc");
+  const pageSize = Math.max(1, parseInt(get("pageSize", "20"), 10));
+  const sort = get("sort", "nombre_asc");
   const q = get("q", "");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setState((s) => ({ ...s, loading: true, error: "" }));
-        const url = `${API_BASE}/api/proyectos?page=${page}&pageSize=${pageSize}&sort=${encodeURIComponent(
-          sort
-        )}&q=${encodeURIComponent(q)}`;
+        setState(s => ({ ...s, loading: true, error: "" }));
+        const url = `${API_BASE}/api/etnias?page=${page}&pageSize=${pageSize}&sort=${encodeURIComponent(sort)}&q=${encodeURIComponent(q)}`;
         const res = await axios.get(url);
-        setState({
-          items: res.data.items || [],
-          total: res.data.total || 0,
-          loading: false,
-          error: "",
-        });
+        setState({ items: res.data.items || [], total: res.data.total || 0, loading: false, error: "" });
       } catch (e) {
         console.error(e);
-        setState({
-          items: [],
-          total: 0,
-          loading: false,
-          error: "No fue posible cargar las publicaciones",
-        });
+        setState({ items: [], total: 0, loading: false, error: "No fue posible cargar las etnias" });
       }
     };
     fetchData();
@@ -66,37 +49,16 @@ export default function PublicacionesTacitas() {
 
   const totalPages = Math.max(1, Math.ceil(state.total / pageSize));
 
-  // 🔴 NUEVO: actualizar la lista local tras eliminar, sin recargar
-  const handleDeleted = (iriEliminada) => {
-    setState((s) => {
-      const items = s.items.filter((it) => it.iri !== iriEliminada);
-      const total = Math.max(0, s.total - 1);
-
-      // Si la página quedó vacía y no es la primera, retrocede una página
-      if (items.length === 0 && page > 1) {
-        // Cambia la URL (esto disparará el useEffect y recargará datos)
-        setMany({ page: page - 1 });
-        return s; // devolvemos el estado actual (lo recargará el efecto)
-      }
-
-      // Si aún hay elementos en la página, actualiza estado inmediatamente
-      return { ...s, items, total };
-    });
-  };
-
   return (
     <div className="max-w-7xl mx-auto p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <h2 className="text-3xl font-extrabold text-blue-900">
-          Publicaciones tácitas
-        </h2>
-
-        <div className="flex gap-2 flex-wrap">
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <h2 className="text-3xl font-extrabold text-blue-900">Etnias</h2>
+        <div className="flex items-center gap-2">
           <input
             value={q}
             onChange={(e) => setMany({ q: e.target.value, page: 1 })}
-            placeholder="Buscar por nombre, autor o tema…"
-            className="border rounded px-3 py-2 w-64"
+            placeholder="Buscar por nombre, idioma, región, país…"
+            className="border rounded px-3 py-2 w-80"
           />
           <select
             value={sort}
@@ -104,10 +66,8 @@ export default function PublicacionesTacitas() {
             className="border rounded px-2 py-2"
             title="Orden"
           >
-            <option value="fecha_desc">Más recientes</option>
-            <option value="fecha_asc">Más antiguas</option>
-            <option value="titulo_asc">Título A–Z</option>
-            <option value="titulo_desc">Título Z–A</option>
+            <option value="nombre_asc">Nombre A–Z</option>
+            <option value="nombre_desc">Nombre Z–A</option>
           </select>
           <select
             value={pageSize}
@@ -119,13 +79,6 @@ export default function PublicacionesTacitas() {
             <option value="20">20</option>
             <option value="36">36</option>
           </select>
-
-            <a
-              href="/publicaciones/nueva"
-              className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-            >
-              Agregar publicación
-            </a>
         </div>
       </div>
 
@@ -136,18 +89,13 @@ export default function PublicacionesTacitas() {
         state.items.length ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {state.items.map((item) => (
-                <PublicacionCard
-                  key={item.iri || item.id}
-                  item={item}
-                  onDeleted={handleDeleted} // ← pasa el callback
-                />
+              {state.items.map(item => (
+                <EtniaCard key={item.iri || item.id} item={item} />
               ))}
             </div>
 
-            {/* Paginador */}
             <div className="flex items-center justify-between mt-6">
-              <span className="text-slate-700">
+              <span className="text-slate-900">
                 Página {page} de {totalPages} • {state.total} resultados
               </span>
               <div className="flex gap-2">
@@ -169,10 +117,9 @@ export default function PublicacionesTacitas() {
             </div>
           </>
         ) : (
-          <p className="text-gray-500">No hay publicaciones.</p>
+          <p className="text-gray-500">No hay etnias.</p>
         )
       )}
     </div>
   );
 }
-

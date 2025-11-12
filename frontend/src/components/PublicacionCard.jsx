@@ -25,6 +25,7 @@ export default function PublicacionCard({ item = {}, onDeleted }) {
     archivoUrl,
     mimeType,
     nombreArchivo,
+    etniaNombre,
   } = item;
 
   // Determinar el "kind" para la vista previa
@@ -142,6 +143,8 @@ export default function PublicacionCard({ item = {}, onDeleted }) {
           {licencia && <span>⚖️ {licencia}</span>}
           {autorNombre && <span>👤 {autorNombre}</span>}
           {temaNombre && <span>🏷️ {temaNombre}</span>}
+          {etniaNombre && <span>🧬 {etniaNombre}</span>}
+
         </div>
 
         {/* Acciones */}
