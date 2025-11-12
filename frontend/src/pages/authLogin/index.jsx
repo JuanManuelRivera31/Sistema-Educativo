@@ -39,7 +39,7 @@ export default function Login() {
   };
 
   return (
-    <div className="flex justify-center items-center mt-10">
+    <div className="flex justify-center items-center mt-16">
       <form onSubmit={handleSubmit} className="w-full max-w-md p-6 rounded-lg shadow space-y-4">
         <h2 className="text-2xl font-bold text-center">Iniciar sesión</h2>
         {msg && <p className="text-center text-red-600">{msg}</p>}
