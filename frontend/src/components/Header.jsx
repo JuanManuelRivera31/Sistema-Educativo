@@ -1,133 +1,100 @@
-// src/components/Header.jsx
-import { useEffect, useRef, useState } from "react";
-import { NavLink, Link, useLocation, useNavigate } from "react-router-dom";
-
-const navItems = [
-  { to: "/", label: "Inicio" },
-  { to: "/publicaciones", label: "Publicaciones" },
-  { to: "/temas", label: "Temas" },
-  { to: "/personas", label: "Personas" },
-  { to: "/recursos", label: "Recursos" },
-  { to: "/lugares", label: "Lugares" },
-  { to: "/etnias", label: "Etnias" },
-  { to: "/mi-cuenta", label: "Mi cuenta" },
-  { to: "/admin", label: "Admin" },
-];
+import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
 
 export default function Header() {
-  const [open, setOpen] = useState(false);
-  const [term, setTerm] = useState("");
-  const inputRef = useRef(null);
   const navigate = useNavigate();
-  const location = useLocation();
 
-  // 1) Mantén el input del header sincronizado con ?q=
-  useEffect(() => {
-    const q = new URLSearchParams(location.search).get("q") ?? "";
-    setTerm(q);
-  }, [location.search]);
+  const token = localStorage.getItem('auth_token');
+  const roles = (() => {
+    try { return JSON.parse(localStorage.getItem('auth_roles') || '[]'); }
+    catch { return []; }
+  })();
+  const isAdmin = roles.includes('admin');
 
-  // 2) Cierra menú al cambiar de ruta
-  useEffect(() => { setOpen(false); }, [location.pathname]);
+  const user = (() => {
+    try { return JSON.parse(localStorage.getItem('auth_user') || 'null'); }
+    catch { return null; }
+  })();
 
-  // 3) Atajo "/" para enfocar buscador
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "/" && !["input","textarea"].includes(document.activeElement?.tagName.toLowerCase())) {
-        e.preventDefault();
-        inputRef.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  const linkClass = ({ isActive }) =>
+    `px-3 py-2 rounded-md text-sm font-medium ${
+      isActive ? 'bg-blue-100 text-blue-800' : 'text-slate-700 hover:text-slate-900'
+    }`;
 
-  const submit = (e) => {
-    e?.preventDefault();
-    const q = term.trim();
-    // Redirige a Publicaciones con q y reinicia a página 1
-    navigate(q ? `/publicaciones?q=${encodeURIComponent(q)}&page=1` : "/publicaciones?page=1");
+  const onLogout = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_roles');
+    navigate('/login', { replace: true });
   };
 
-  const baseItem = "px-3 py-2 rounded-md text-sm font-medium transition";
-  const active = "bg-blue-600 text-white hover:bg-blue-700";
-  const inactive = "text-slate-700 hover:bg-slate-100";
+  // Menú principal (solo con sesión)
+  const mainLinks = useMemo(() => ([
+    { to: '/', label: 'Inicio' },
+    { to: '/publicaciones', label: 'Publicaciones' },
+    { to: '/temas', label: 'Temas' },
+    { to: '/personas', label: 'Personas' },
+    { to: '/recursos', label: 'Recursos' },
+    { to: '/lugares', label: 'Lugares' },
+    { to: '/etnias', label: 'Etnias' },
+    { to: '/mi-cuenta', label: 'Mi cuenta' },
+    ...(isAdmin ? [{ to: '/admin', label: 'Admin' }] : []),
+  ]), [isAdmin]);
 
   return (
-    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-200">
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="h-16 flex items-center gap-3">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 shrink-0">
+    <header className="bg-white border-b border-slate-300">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2 shrink-0">
             <span className="inline-block w-2.5 h-6 bg-blue-600 rounded-sm" />
-            <span className="text-lg font-extrabold text-blue-900">EduConocimiento</span>
+            <span className="text-2xl font-extrabold text-blue-900">EduConocimiento</span>
           </Link>
 
-          {/* Buscador desktop */}
-          <form onSubmit={submit} className="hidden md:flex flex-1 items-center">
-            <label htmlFor="global-search" className="sr-only">Buscar</label>
-            <input
-              id="global-search"
-              ref={inputRef}
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              placeholder="Buscar por nombre, autor o tema… (atajo /)"
-              className="w-full max-w-xl border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
-            />
-          </form>
+        {/* Si NO hay token → Login / Registrarse */}
+        {!token ? (
+          <nav className="flex items-center gap-4">
+                <Link to="/login" className="text-sm font-black text-blue-600 hover:text-blue-900">Iniciar sesión</Link>
+                <Link to="/register" className="text-sm font-black text-blue-600 hover:text-blue-900">Registrarse</Link>
+                <Link to="/about" className="text-sm font-black text-blue-600 hover:text-blue-900">Nosotros</Link>
+          </nav>
+        ) : (
+          // Si hay token → menú completo + usuario + salir
+          <div className="flex items-center gap-6">
+            <nav className="hidden md:flex items-center gap-1">
+              {mainLinks.map(link => (
+                <NavLink key={link.to} to={link.to} className={linkClass} end={link.to === '/'} >
+                  {link.label}
+                </NavLink>
+              ))}
+            </nav>
 
-          {/* Menú desktop */}
-          <div className="hidden md:flex md:items-center md:gap-1">
-            {navItems.map((item) => (
-              <NavLink key={item.to} to={item.to}
-                className={({ isActive }) => `${baseItem} ${isActive ? active : inactive}`}
-                end={item.to === "/"}
+            {/* Menú compacto en pantallas pequeñas (simple versión) */}
+            <div className="md:hidden">
+              <select
+                className="border rounded px-2 py-2 text-sm"
+                onChange={(e) => e.target.value && navigate(e.target.value)}
+                defaultValue=""
               >
-                {item.label}
-              </NavLink>
-            ))}
-          </div>
+                <option value="" disabled>Menú</option>
+                {mainLinks.map(l => (
+                  <option key={l.to} value={l.to}>{l.label}</option>
+                ))}
+              </select>
+            </div>
 
-          {/* Toggle móvil */}
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="md:hidden ml-auto inline-flex items-center justify-center p-2 rounded-md text-slate-700 hover:bg-slate-100"
-            aria-label="Abrir menú" aria-expanded={open}
-          >
-            <svg className={`h-6 w-6 ${open ? "hidden" : "block"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeWidth="2" strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-            <svg className={`h-6 w-6 ${open ? "block" : "hidden"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeWidth="2" strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Menú + buscador móvil */}
-        <div className={`md:hidden ${open ? "block" : "hidden"} pb-3`}>
-          <form onSubmit={submit} className="mb-2">
-            <label htmlFor="global-search-m" className="sr-only">Buscar</label>
-            <input
-              id="global-search-m"
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              placeholder="Buscar…"
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
-            />
-          </form>
-          <div className="grid gap-1">
-            {navItems.map((item) => (
-              <NavLink key={item.to} to={item.to}
-                className={({ isActive }) => `${baseItem} ${isActive ? active : inactive}`}
-                end={item.to === "/"}
-                onClick={() => setOpen(false)}
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-slate-700">
+                {user?.nombre ? `Hola, ${user.nombre}` : user?.correo || ''}
+              </span>
+              <button
+                onClick={onLogout}
+                className="px-3 py-2 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-700"
               >
-                {item.label}
-              </NavLink>
-            ))}
+                Salir
+              </button>
+            </div>
           </div>
-        </div>
-      </nav>
+        )}
+      </div>
     </header>
   );
 }

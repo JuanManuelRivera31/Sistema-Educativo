@@ -7,6 +7,7 @@ import PublicacionesTacitas from "./pages/publicaciones/index.jsx";
 import PublicacionNueva from "./pages/nuevaPublicacion/index.jsx";
 import Home from "./pages/home/index.jsx";
 import Login from "./pages/authLogin/index.jsx";
+import Register from "./pages/authRegister/index.jsx";
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             <Route path="/publicaciones" element={<PublicacionesTacitas />} />
 
             

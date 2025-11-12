@@ -1,10 +1,11 @@
+// backend/src/middleware/auth.js
 const jwt = require('jsonwebtoken');
 
-function signToken(user) {
+function signToken(user, roles = []) {
   return jwt.sign(
-    { sub: user.id, email: user.email, roles: user.roles },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES || '7d' }
+    { sub: user.id, correo: user.correo, roles },
+    process.env.JWT_SECRET || 'devsecret',
+    { expiresIn: process.env.JWT_EXPIRES || '8h' }
   );
 }
 
@@ -14,7 +15,7 @@ function authRequired(req, res, next) {
   if (!token) return res.status(401).json({ error: 'No token' });
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = jwt.verify(token, process.env.JWT_SECRET || 'devsecret');
     req.user = payload;
     next();
   } catch {

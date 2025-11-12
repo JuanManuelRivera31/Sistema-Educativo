@@ -1,6 +1,7 @@
 require('dotenv').config(); 
-const express = require('express');
 
+
+const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
 const path = require('path');
@@ -15,10 +16,9 @@ app.use(cors());
 app.use(express.json());
 
 // Carpeta pública para archivos
+const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
 app.set('etag', false);
 app.use((req,res,next)=>{ res.set('Cache-Control','no-store'); next(); });
-
-const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
 app.use('/uploads', express.static(path.resolve(UPLOAD_DIR), {
   etag:false, lastModified:false, maxAge:0
 }));
